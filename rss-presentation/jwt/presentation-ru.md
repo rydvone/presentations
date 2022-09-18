@@ -11,39 +11,153 @@
 ---   
 
 #### 0. Introduce
-Hello everyone! My anme is AV 
-Today I would like to introduce presentation on the JWT
+Hello everyone! My name is AV 
+Today I would like to introduce a presentation on JWT.
 
 #### 0. Content
 In this presentation we'll explore the following questions:
-1. Basic. Why we need JWT and what is problem JWT solve? 
-2. что такое JSON Web Tokens
-3. из каких частей он состоит
-4. как используется для аутентификации пользователей и в чем заключается преимущество JWT в сравнении с классической схемой аутентификации с использованием сессий
+1. The Problem
+2. What is a JWT 
+3. Structure
+4. JWT Claims
+5. JWT Authentication With Refresh Tokens
 ...
 
-```
-	1 раздел - это проблема, которую надо будет решить
-```
-1. Issue  
+#### 1. The Problem  
 Long time ago we have next standart realize project
 
 client  (request)----------> 		server (generate random id and save information about user, then responce )
 		<---------(responce) id		
 			(cookei)
-			
-client every own response подписывал эти id, ыервер смотре в своем хранилище и сверял этот id
 
-Все работало до появления микросервисов и внеш авторизации
+```			
+Клиент отправляет запрос на сервер (Auth auth.site.com). Сервер случайным образом генерирует id  for user and save this information into storage.
+client every own response подписывал эти id, сервер смотрел в своем хранилище и сверял этот id.
+Все работало до появления микросервисов и внешней авторизации.
 
-Проблема
-Есть сервер Авторизации Auth auth.site.com
-Есть сервер данных API api.data.com
+Проблема.
+У нас есть сервер Авторизации Auth auth.site.com и сервер данных API api.data.com. Это разные сервера.
+Если клиент будет отправлять id в cookie, то они автоматически выставятся для  auth.site.com, что нам не подходит, при обращении к api.data.com. Если решить эту проблему и выставлять id в виде plain-text (for example in body response), то возникнет проблема, что отсылая id к api.data.com, самому серверу(api.data.com) надо сделать запрос на сервер Auth (), чтобы узнать валидность id и данные самого пользователя.  
+Для решения этой проблемы можно использовать криптографию. Для этого Серер должен выдавать не просто id, а полноценный id, который в дополнение будет подписан секретным ключом. Секретный ключ - это строка, которая выдана в настройках и сервера-данных. И является идентичной на обоих серверах. Подпись - это результат хэширования данных пользователя. Клиент может виеть данные, которые он получил, однако клиент не может их изменить. ПОтому, что тогда подпись будет неверной.  Когда, пользователь отправляет данные на сервер-данных API, этот сервер сверяет подпись пользователя с той что он рассчитал на основе секретного ключа.
+И этим подтверждается корректность (неизменность) данных. 
+???? Для того, чтобы убрать данную дополнительную связь (between auth and api), а также улучшить защищенность данных стали использовать JWT-токен.  
+```
 
-Если выдали айди. Если id выдавать в cookie, то они автоматически выставятся для  auth.site.com, что нам не подходит, при обращении к api.data.com. Если решиь эту проблему и выставлять id в виде plain-text, то возникнет проблема, что отсылая id к api.data.com, самомму серверу(api.data.com) надо постучаться на сервер Auth (), чтобы узнать валидность id и данные самого пользователя.  
-Для того, чтобы убрать данную дополнительную связь и улучшить защищенность стали использовать JWT-токен.
+The client sends a request to the server (Auth auth.site.com). The server randomly generates users id and save this information into storage.
+Client every own response signed these id, server looking for id in storage and check it.
 
-			
+Everything worked fine until the emergence of microservices and external authorization.
+
+The problem is.
+We have an Auth Auth.site.com authorization server and an api.data.com API data server. These are different servers.
+
+If the client sends the id in a cookie, it will automatically be set for auth.site.com, which does not work for access to api.data.com. If we solve this problem and expose id as plain-text (for example in body response), then there is a problem that sending id to api.data.com, the server itself (api.data.com) must make a request to the server Auth (), to know the validity of id and full data of the user.  
+
+To solve this problem, we can use cryptography. To do this, Serer must issue not just a simple id, but a full id, which in addition will be signed with a secret key. The secret key is a string that is issued in the settings and server-data. And is identical on both servers. The signature is the result of hashing the user's data. The client can see the data it has received but the client cannot change it. This is because then the signature will not be correct.  When the user sends data to the API data server, that server checks the user's signature against what he calculated based on the secret key. And it confirms the correctness (immutability) of the data.
+
+
+#### 2. What is a JWT  
+A JSON Web Token (JWT) is a JSON object that is defined in RFC 7519 as a safe way of transmitting information between two parties. Information in the JWT is digitally-signed, so that it can be verified and trusted.		
+
+#### 3. Structure
+A JWT is just a string, which contains three parts: headers, payload and signature.  
+* Header: contains information about how the JWT signature should be calculated. This is a JSON object that looks like this:
+{
+  "alg": "HS256",
+  "typ": "JWT"
+}
+
+and consists of two parts:
+	- The signing algorithm that’s being used.	
+	- The type of token, which, in this case, is mostly “JWT”.
+
+
+* Payload: The payload contains the claims or the JSON object.
+```это полезные данные, которые хранятся внутри JWT. Эти данные также называют JWT-claims (заявки).
+Эти поля могут быть полезными при создании JWT, но они не являются обязательными. Cтоит помнить, что чем больше передается информации, тем больший получится в итоге сам JWT. Обычно с этим не бывает проблем, но все-таки это может негативно сказаться на производительности и вызвать задержки во взаимодействии с сервером.
+```
+Payload is useful data that is stored inside the JWT. This data is also called JWT-claims.  
+These fields may be useful when creating a JWT, but they are not mandatory. It is worth remembering that the more information that is transferred, the larger the JWT itself will end up. Usually there is no problem with this, but it can still have a negative impact on performance and cause delays in communication with the server.
+example:
+{
+  "sub": "0123456789",
+  "name": "John Bonn",
+  "iat": 1662034022
+}
+
+* Signature: A string that is generated via a cryptographic algorithm that can be used to verify the integrity of the JSON payload.
+https://supertokens.com/static/b0172cabbcd583dd4ed222bdb83fc51a/40601/jwt-structure.png
+
+Example  
+https://jwt.io/
+{
+  "alg": "HS256",
+  "typ": "JWT"
+}
+{
+  "sub": "0123456789",
+  "name": "John Bonn",
+  "iat": 1662034022
+}
+HMACSHA256(
+  base64UrlEncode(header) + "." +
+  base64UrlEncode(payload),  
+	secret
+) secret base64 encoded
+
+#### 4. JWT Claims (заявки)
+https://auth0.com/docs/secure/tokens/json-web-tokens/json-web-token-claims
+There are two types of JWT claims: Registered and Custom.
+
+Registered: standard claims registered with the Internet Assigned Numbers Authority (IANA) and defined by the JWT specification to ensure interoperability with third-party, or external, applications. OIDC standard claims are reserved claims.
+Custom:  consists of non-registered public or private claims. Public claims are collision-resistant while private claims are subject to possible collisions.
+
+Registered claims
+The JWT specification defines seven reserved claims that are not required, but are recommended to allow interoperability with third-party applications. These are: (you can see then on screen)
+-iss (issuer): Issuer of the JWT
+-sub (subject): Subject of the JWT (the user)
+-aud (audience): Recipient for which the JWT is intended
+-exp (expiration time): Time after which the JWT expires
+-nbf (not before time): Time before which the JWT must not be accepted for processing
+-iat (issued at time): Time at which the JWT was issued; can be used to determine age of the JWT
+-jti (JWT ID): Unique identifier; can be used to prevent the JWT from being replayed (allows a token to be used only once)
+You can see a full list of registered claims at the IANA JSON Web Token Claims Registry.
+
+Custom claims
+You can define your own custom claims which you control and you can add them to a token using Actions. Here are some examples:
+- Add a user's email address to an access token and use that to uniquely identify the user.
+- Add custom information stored in an Auth0 user profile to an ID token.
+As long as the Action is in place, the custom claims it adds will appear in new tokens issued when using a refresh token.
+For an example showing how to add custom claims to a token, see Sample Use Cases: Scopes and Claims.
+
+
+
+#### 5. How do JSON Web Tokens work?  
+
+#### 6. JWT Authentication With Refresh Tokens
+https://www.geeksforgeeks.org/jwt-authentication-with-refresh-tokens/?ref=rp
+When building a web application, authentication is one of the important aspects, and we usually implement authentication using JWT tokens (You can learn more about JWT here). We create an access token and store it in the local storage or session or cookie. But there is a more secure way to implement this using Refresh Tokens.
+
+Refresh Tokens: It is a unique token that is used to obtain additional access tokens. This allows you to have short-lived access tokens without having to collect credentials every time one expires.
+
+Since access tokens aren’t valid for an extended period because of security reasons, a refresh token helps to re-authenticate a user without login credentials. This Refresh token is never exposed to the client-side Javascript, even if our access token gets compromised it’ll be expired in a very short duration. So, we will be sending two tokens instead of one, an access token and a refresh token. The access token will contain all the user information and will be stored in Javascript runtime, but the refresh token will be stored securely in an HTTP-only cookie. 
+pic. jwt-auth-w-refresh-token-01
+
+Auth Persistence: We can easily persist users between refreshes and login without any credentials. We can create a new route called refresh, whenever a token expires or a user refreshes we can get a new access token by sending a request to this route
+pic. jwt-auth-w-refresh-token-02
+
+
+
+
+
+
+
+
+
+
+
+
+
 2. Basic
 JWTs can be used in various ways:
 
